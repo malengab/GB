@@ -1,28 +1,44 @@
-% plots the stationary points, discards some combinations either 
-% based dependent on the distance or the radius
+% QOI computed using the NSDM
 close all
-kdata = 10*2.^(0:8);% out of memory for 0:7
-time1 = []; 
-tot =[];
+kdata = 10*2.^(0:5);    % wave numbers % out of memory for 0:8
+
 time2 = []; 
 Qdata = []; 
-sumdata = [];
+time12 = []; time22 = []; time23 = [];
+tot2 =[];
+Qdata3 = [];
+sumdata2 = [];
+
+tol = 1e-5;  % radius based tolerance
+tol3 = 1e-11; % test function radius
+cdata = [];
+
+tol2 = 1e-11; % how precise should NSDM be
+nmax = 256; % max number of GL points
+nmin = 1;   % min number of GL points
+
+% test function 
+x0 = 0;
+psif = @(x,y) exp(-5*((x-x0).^2+y.^2)); 
+Rpsi = sqrt(-1/5*log(tol3));   % 'radius' of the test func
+
+
 for k = kdata;
 epsilon = 1/k;      % 1/wave number  
-% Y1 = .8; Y2 = .75; Y3 = 1;  % former random variables
-Y1 = 0; Y2 = 0; Y3 = 0;
-% Y1 = 0.1; Y2 = 0.2; Y3 = 0.3;
+Y1 = .8; Y2 = .75; Y3 = 1;  % former random variables, example 1
+% Y1 = 0; Y2 = 0; Y3 = 0;   % example 2
+% Y1 = 0.1; Y2 = 0.2; Y3 = 0.3; % example 3
 
 %% GB preliminaries
-% sx = -.5;            % initial bump position
-ppw = 10;           % points per wavelength
-T = 1;              % final time 
-Lx = 4; Ly = 3;        % length of the domain
-% n = 1;               %nr of GL points
+ppw = 10;               % points per wavelength
+T = 3;                  % final time 
+Lx = 4; Ly = 4;         % length of the domain
 
 % initial amplitude
 d = 10;
+
 % % ONE PULSE
+% sx = -.5;             % initial bump position
 % a = @(x,y) exp(-d*((x-sx).^2 + y.^2));
 % phi = @(x,y) -x;
 % px = @(x,y) -1*ones(size(x));   % p_x
@@ -32,39 +48,19 @@ d = 10;
 % m11 = @(x,y) (0 + 1i)*ones(size(x)); % p_yy + 1i
 
 % % two pulses
-sx1 = -1; sx2 = 1;
+sx1 = -1; sx2 = 1;      % centers
 a = @(x,y) exp(-d*((x-sx1).^2 + y.^2)) + exp(-d*((x-sx2).^2 + y.^2));
-phi = @(x,y) abs(x);
+phi = @(x,y) abs(x);    % phi_0
 px = @(x,y) sign(x).*ones(size(x));   % p_x
 py = @(x,y) 0*ones(size(x));    % p_y
 m00 = @(x,y) (0 + 1i)*ones(size(x)); % p_xx + 1i
 m10 = @(x,y) 0*ones(size(x)); % p_xy
 m11 = @(x,y) (0 + 1i)*ones(size(x)); % p_yy + 1i
 
-% test bump function 
-x0 = 0;
-psif = @(x,y) exp(-5*((x-x0).^2+y.^2)); %(x.^2 + y.^2<e^2).*exp(-(x.^2+y.^2)./(e^2-x.^2-y.^2));
-Rpsi = sqrt(-1/5*log(1e-12));   % 'radius' of the test func
-
-% cutoff
-% % choice = 3;
-% % iff choice = 1
-% c = 10;
-% dist = sqrt(epsilon)*c; % distance at which beams interact
-% % if choice = 2
-tol = 1e-7;  % radius based
-% % if choice == 3 bound the imag Psi > bound
-% bound = 1;
-
-tol2 = 1e-11; % how precise should NSDM be
-nmax = 256; % max number of GL points
-nmin = 1;
 
 %% %%% NO NEED TO CHANGE ANYTHING UNDER THIS POINT %%%%%%%%%%%%%
 
 [xx,yy,h,ssx,ssy,cgap] = GBgrid(ppw,Lx,Ly,epsilon);      % GB grid points
-% ssx = [0;0.1;0;0.1]; ssy = [0;0.1;0.1;0];
-% ssx = 0; ssy = 0;
 nnn = length(ssx(:));
          
     %% Compute Gaussian beams
@@ -94,51 +90,49 @@ nnn = length(ssx(:));
         m4 = u1(:,7);
         A1 = u1(:,8);
 
- %%     % plot initial data
-% v0 = zeros(size(xx));
-% for ind = 1:nnn;
-% v00 = a(ssx(ind),ssy(ind))*exp(1i*k*(phi(ssx(ind),ssy(ind))+...
-%     (xx-ssx(ind))*px(ssx(ind),ssy(ind))+(yy-ssy(ind))*py(ssx(ind),ssy(ind))+...
-%     1/2*m00(ssx(ind),ssy(ind))*(xx-ssx(ind)).^2 + ...
-%     m10(ssx(ind),ssy(ind)).*(xx-ssx(ind)).*(yy-ssy(ind))+...
-%     + 1/2*m11(ssx(ind),ssy(ind)).*(yy-ssy(ind)).^2));
-% v0 = v0 + v00;
-% end
-% v0 = 1/(2*pi*epsilon)*cgap^2*v0;
-% figure;
-% surf(xx,yy,abs(v0));
-% shading interp
-% colorbar
-% view([0 90])
-% title('t = 0','FontSize',16)
-% print('-dpdf','sol0.pdf')
-
-%% compare one GB results
-% tic
-% % slow sol to compare
-% vv = zeros(size(xx));
-% for ind = 1:length(ssx);
-% v = A1(ind)*exp(1i*k*(phi01(ind) + (xx-xnew1(ind))*pnew1(ind) + (yy-ynew1(ind))*pnew2(ind)+...
-%     1/2*m1(ind)*(xx-xnew1(ind)).^2 + m2(ind).*(xx-xnew1(ind)).*(yy-ynew1(ind))+...
-%     + 1/2*m4(ind).*(yy-ynew1(ind)).^2));
-% vv = vv + v;
-% end
-% v1 = 1/(2*pi*epsilon)*cgap^2*vv;
-% figure;
-% surf(xx,yy,abs(v1));
-% shading interp
-% colorbar
-% view([0 90])
-% title('T = 3','FontSize',16)
-% print('-dpdf','sol3.pdf')
-
-% Q  = sum(sum(abs(v1).^2.*psif(xx,yy)))*h^2;
-% t2 = toc;
+%% uncomment if you want a slow trapezoidal rule reference solution
+% tic        
+% Q = GBtrap(xx,yy,nnn,ssx,ssy,a,phi,k,m00,m10,m11,px,py,...
+%     xnew1,ynew1,A1,phi01,m1,m2,m4,pnew1,pnew2,cgap,psif,h,epsilon);
 % Qdata = [Qdata Q];
+% t2 = toc;
 % time2 = [time2 t2];
 
-% tic
+
+%% old GB solution from Paper 2
+      % % initiate auxiliary variables
+%       uu = zeros(size(xx));
+%         xxx = xx(:); xxx = repmat(xxx,1,nnn);
+%         xxs1 = xxx - repmat(xnew1,;
+%         yys1 = yy - ynew1;
+% sumc = 0;
+% t3 = 0;
+%       % Loop over GB solutions 
+% for ii = 1:length(ssx);
+%          uuu = U1(end,ii:nnn:end); uuu=[uuu(1:6) uuu(6) uuu(7:8)];  % GB parameters      
+%          s1 = ssx(ii);
+%          s2 = ssy(ii);
+%          phi0 = phi(s1,s2);               % phi0
+% %          tic
+%         [vend1,c1,tt] = GBsol(epsilon,xx,yy,phi0,uuu,x0,Rpsi,tol);
+%         sumc = sumc + length(nonzeros(c1));
+%         % Sum solution values inside QOI support
+%         uu(c1) = uu(c1) + vend1;
+% %         tt = toc;
+% 
+% t3 = t3 + tt;
+% end
+%         cdata = [cdata sumc];
+%       %% Compute Q by trapezoidal rule
+%       uu = 1/(2*pi*epsilon)*cgap^2*uu;
+%       Q = h^2*sum(sum(abs(uu).^2.*psif(xx-x0,yy)));   % quantity of interest
+% %       t3 = toc;
+%       Qdata3 = [Qdata3 Q];
+%       time3 = [time3 t3];
+
 %% eigenvalues
+tic   % tic, pair 1
+
 m1i = imag(m1); m2i = imag(m2); m4i = imag(m4);
 sqrtm = sqrt((m1i-m4i).^2+4*m2i.^2);
 lam1 = (m1i+m4i+sqrtm)/2;
@@ -168,15 +162,11 @@ c12 = pnew2-(m2.*xnew1+m4.*ynew1);
 bs = 1e3;
 ne = length(xnew1);     % nr of elements
 nr = ceil(ne/bs);   % max nr of runs
-summ = 0;
+summ2 = 0;
 
-% x1 =  []; y1 = [];  % statpts all
-% x2 = []; y2 = [];   % statpts only contributing
-% us2 = []; usA = []; g1 = []; g2 = [];
-
-us = []; donesum = 0; notdonesum = 0; totalsum = 0;
-xdone = []; ydone = []; ndone = [];
-t1 = 0;
+us2 = []; donesum2 = 0; notdonesum2 = 0; totalsum2 = 0;
+xdone2 = []; ydone2 = []; ndone2 = [];
+t22 = 0; t23 = 0;
 % to avoid big matrices, we combine the points by batches
 for kk = 0:(nr-1);
     for ll = 0:(nr-1);  % all combinations w kk
@@ -189,217 +179,121 @@ for kk = 0:(nr-1);
             ind2 = bs*ll+1:ne;
         else
             ind2 =(bs*ll+1):(bs*(ll+1));
-        end
-    [ba,bb] = meshgrid(b1(ind),b1(ind2));
-    B = ba-conj(bb);
-    [c1a,c1b] = meshgrid(c11(ind),c11(ind2));
-    C1 = c1a-conj(c1b);
-    [c2a,c2b] = meshgrid(c12(ind),c12(ind2));
-    C2 = c2a-conj(c2b);
-    [m11a,m11b] = meshgrid(1/2*m1(ind),1/2*m1(ind2));
-    [m12a,m12b] = meshgrid(1/2*m2(ind),1/2*m2(ind2));
-    % m13 = m12;
-    [m14a,m14b] = meshgrid(1/2*m4(ind),1/2*m4(ind2));
-    M1 = m11a-conj(m11b);
-    M2 = m12a-conj(m12b);
-    % M3 = M2;
-    M4 = m14a-conj(m14b);
-    [A1a,A1b] = meshgrid(A1(ind),A1(ind2));
-    A = A1a.*conj(A1b);
-% all stationary points
+        end   
+ %% choose only some
 
-[d24,xi,xix,g] = statpts(C1,C2,M1,M2,M4);
-sid4 = sqrt(1i./M4);
-
-% gb = g + B;
-
-% x1 = [x1; xix(:)]; y1 = [y1; xiyx(:)];  % save
-% x1 = xix(:); y1 = xiyx(:);
-% g values
-% g = C1.*xix+C2.*xiyx+M1.*xix.^2+M4.*xiyx.^2+2*M2.*xix.*xiyx+ B;
-%%
-% if any(imag(g)<-1e-10);
-%     warning('Negative stat points!!!')
-% end
-%%
-% g1 = [g1;g(:)];
-
-%% choose only some
 %   % which combinations of points are relevant
     [XX1,XX2] = meshgrid(xnew1(ind),xnew1(ind2));
     [YY1,YY2] = meshgrid(ynew1(ind),ynew1(ind2));
-%     if choice == 1
-%         CC = sqrt((XX2-XX1).^2+(YY2-YY1).^2)<dist;
-% % %     figure
-% % %     spy(CC)
-% %     disp(sum(sum(CC))/nnn^2);
-%     elseif choice == 2 
-%   %alternatively based on size of GB
-% m1i = imag(M1); m2i = imag(M2); m4i = imag(M4);
-% sqrtm = sqrt((m1i-m4i).^2+4*m2i.^2);
-% lam1 = (m1i+m4i+sqrtm)/2;
-% lam2 = (m1i+m4i-sqrtm)/2;
-% lam = min(lam1,lam2);
-% K = log(tol./abs(A));  % circle where the beam value is tol
-% % in = K<=max(K);   % discard those that are smaller than that
-% R = sqrt(-2*K/k./lam);    % radius of each GB
+tStart = tic;   % tic, pair 2
     [RR1,RR2] = meshgrid(R(ind),R(ind2));
-    CC = sqrt((XX2-XX1).^2+(YY2-YY1).^2)<=RR1+RR2;
+    CC = (XX2-XX1).^2+(YY2-YY1).^2<=(RR1+RR2).^2;  % combinations of z and z' that overlap
+    [j2,j1] = find(CC); % find nonzero indices
+tt = toc(tStart);   % toc, pair 2
 
-% CC = RR1<=max(max(RR1));
-% %     figure
-% %     spy(CC2)   
-% %     CC = CC2;
-%     elseif choice == 3
-%         CC = imag(g)<bound;           
-%     end
-%     disp(sum(sum(CC))/nnn^2);
+    j2 = j2 + ll*bs; j1 = j1 + kk*bs;   % shift the index w the current batch
 
-%%
-B = sparse(B(CC));
-C1 = sparse(C1(CC));
-C2 = sparse(C2(CC));
-M1 = sparse(M1(CC));
-M2 = sparse(M2(CC));
-M4 = sparse(M4(CC));
-A = sparse(A(CC));
-% 
-% % on the top of it, discard those whose amplitude is too small to
-% % contribute
-% CCC = abs(A)>1e-9;
-% B = sparse(B(CCC));
-% C1 = sparse(C1(CCC));
-% C2 = sparse(C2(CCC));
-% M1 = sparse(M1(CCC));
-% M2 = sparse(M2(CCC));
-% M4 = sparse(M4(CCC));
-% A = sparse(A(CCC));
+    ba2 = b1(j1); bb2 = b1(j2);
+    c1a2 = c11(j1); c1b2 = c11(j2);
+    c2a2 = c12(j1); c2b2 = c12(j2);
+    m11a2 = 1/2*m1(j1); m11b2 = 1/2*m1(j2);
+    m12a2 = 1/2*m2(j1); m12b2 = 1/2*m2(j2);
+    m14a2 = 1/2*m4(j1); m14b2 = 1/2*m4(j2);
+    A1a2 = A1(j1); A1b2 = A1(j2);
+ 
+     B2 = ba2-conj(bb2);
+    C12 = c1a2-conj(c1b2);
+    C22 = c2a2-conj(c2b2);    
+    M12 = m11a2-conj(m11b2);
+    M22 = m12a2-conj(m12b2);
+    M42 = m14a2-conj(m14b2);
+    A2 = A1a2.*conj(A1b2);   
+    
+% stationary points and auxiliary variables
+[d242,xi2,xix2,g2] = statpts(C12,C22,M12,M22,M42);
+sid42 = sqrt(1i./M42);
 
-% only the stationary points that make it to the integral
-d24 = d24(CC);%M2./M4;
-xi = xi(CC);%-C2/2./M4;
-sid4 = sid4(CC);
-% xiy = @(x) xi - d24.*x;
-xix = xix(CC);%(-C1.*M4+M2.*C2)./(2*M1.*M4-2*M2.^2);
-% xiyx = xiyx(CC); %xiy(xix);    % xi_y in xi_x
-% x2 = [x2; xix(:)]; y2 = [y2; xiyx(:)];  % save
-% x2 = xix(:); y2 = xiyx(:);
-% g values
-g = g(CC);%C1.*xix+C2.*xiyx+M1.*xix.^2+M4.*xiyx.^2+2*M2.*xix.*xiyx+ B;
-% gb = gb(CC);
-Aexpg = A.*exp(1i*k*(g+B));
+%% only the stationary points that make it to the integral
+Aexpg2 = A2.*exp(1i*k*(g2+B2));
+aa2 = sqrt(1i./(M12-M22.^2./M42));    % q := 1i./aa_old
+bb2 = C12-C22.*M22./M42;
 
-%% auxiliary variables
-aa = sqrt(1i./(M1-M2.^2./M4));    % q := 1i./aa_old
-bb = C1-C2.*M2./M4;
-% cc = bb.^2 + 4*(g + C2.^2/4./M4).*aa; % iszero
-% g2 = [g2; gg(:)];
-% us = zeros(size(B));
-notdone = 1; n = nmin; uspold = zeros(size(B)); Ipartold = uspold;
-totalsum = totalsum + length(B); uspart = []; 
-xdonepart = []; ydonepart = []; ndonepart = [];
-% for nn = 1:5;
-tic
-while ~isempty(notdone) && n <= nmax;
-    usp = steepest(psif,k,n,sid4,d24,xi,aa,xix);
-%     us = [us; usp];
-    Ipart = Aexpg.*usp; % partial integral
-    done = abs(Ipart-Ipartold)<tol2;
-    donesum = donesum + sum(done);
-%     uspart = [uspart; Ipart(done)];% A(done).*usp(done)];
-%     xdonepart = [xdonepart; xix(done)]; % save the stat points
-%     ydonepart = [ydonepart; xiyx(done)];    % coordinates
-%     ndonepart = [ndonepart; n*ones(sum(done),1)]; % how many p point to resolve
-    notdone = ~(done);% + abs(Ipart)>1e20 + isnan(Ipart));   % discard diverging
-%     B = B(notdone); 
-%     C1 = C1(notdone); C2 = C2(notdone);
-%     M1 = M1(notdone); 
-%     M2 = M2(notdone); 
-    M4 = M4(notdone);
-    d24 = d24(notdone); xi = xi(notdone); xix = xix(notdone);
-    sid4 = sid4(notdone);
-% %     xiyx =xiyx(notdone); 
-% %     g = g(notdone); 
-    Aexpg = Aexpg(notdone);
-% %     A = A(notdone);
-    aa = aa(notdone); bb = bb(notdone); %cc = cc(notdone);
-    n = 2*n;
-%     uspold = usp(notdone);
-    Ipartold = Ipart(notdone);
-    summ = summ + 1/(2*pi/k)^2*sum(sum(Ipart(done)))*cgap^4;
+notdone2 = 1; n = nmin; uspold2 = zeros(size(B2)); Ipartold2 = uspold2;
+totalsum2 = totalsum2 + length(B2); uspart2 = []; 
+xdonepart2 = []; ydonepart2 = []; ndonepart2 = [];
+
+tStart2 = tic;  % tic, pair 3
+while ~isempty(notdone2) && n <= nmax;
+    usp2 = steepest(psif,k,n,sid42,d242,xi2,aa2,xix2);
+    Ipart2 = Aexpg2.*usp2; % partial integral
+    done2 = abs(Ipart2-Ipartold2)<tol2;
+    donesum2 = donesum2 + sum(done2);
+    notdone2 = ~(done2);    
+    M42 = M42(notdone2);
+    d242 = d242(notdone2); xi2 = xi2(notdone2); xix2 = xix2(notdone2);
+    sid42 = sid42(notdone2);
+    Aexpg2 = Aexpg2(notdone2);
+    aa2 = aa2(notdone2); bb2 = bb2(notdone2); %cc = cc(notdone);
+   
+    n = 2*n;    % number of GL points increases 
+    Ipartold2 = Ipart2(notdone2);   % push only not finished integrals
+    summ2 = summ2 + 1/(2*pi/k)^2*sum(sum(Ipart2(done2)))*cgap^4;
 end
-    notdonesum = notdonesum + sum(notdone);
-%     us = [us; uspart]; 
-%     ndone = [ndone; ndonepart];
-%     xdone = [xdone; xdonepart]; ydone = [ydone; ydonepart];
-%     us2 = [us2; us(:)];
-%     us = A.*us;
-%     usA = [usA; us(:)];
-tt = toc;
-        t1 = t1+tt;
+tt2 = toc(tStart2); % toc, pair 3
+    notdonesum2 = notdonesum2 + sum(notdone2);
+
+        t22 = t22+tt;
+        t23 = t23+tt2;
     end
 end
-%     summ = summ + 1/(2*pi/k)^2*sum(sum(us))*cgap^4;
-% t1 = toc;
-% issue a warning if not all integrals resolved
-if donesum ~= totalsum
-warning([num2str(notdonesum),' not resolved, ', ...
-    num2str(totalsum-donesum-notdonesum),' discarded out of ',...
-    num2str(totalsum)])
+t12 = toc;  % toc, pair 2
+
+% compute the number of intergals
+if donesum2 ~= totalsum2
+warning([num2str(notdonesum2),' not resolved, ', ...
+    num2str(totalsum2-donesum2-notdonesum2),' discarded out of ',...
+    num2str(totalsum2)])
 end
 % disp(totalsum)
-tot = [tot totalsum];
-time1 = [time1 t1];
-sumdata = [sumdata, summ];
+tot2 = [tot2 totalsum2];
+time12 = [time12 t12];
+time22 = [time22 t22];
+time23 = [time23 t23];
+sumdata2 = [sumdata2, summ2];
 end
 %%
-% load('Qdata.mat'); load('time2.mat');
+% reference solution and time saved
+load('Qdata.mat'); load('time2.mat'); % caustic case
+% load('Qdata2.mat'); load('time22.mat'); % non-caustic case
 
-% loglog(1./kdata,time1,'*-',...
-%     1./kdata,1e-2*kdata.^1,'--',...
-%     1./kdata,1e-2*kdata.^2,'-.',...
-%     1./kdata,1e-3*kdata.^3,':')
-% legend('NSDM','\epsilon^{-1}',...
-%     '\epsilon^{-2}','\epsilon^{-3}')
-% title('Computation cost NSDM','FontSize',16)
-% xlabel('\epsilon'); ylabel('tic-toc time');
-% % print('-dpdf','time_NSDM.pdf')
-% 
-% figure
-% loglog(1./kdata,tot,'*-',1./kdata,1e3*kdata,'--',1./kdata,1e2*kdata.^2,'-.')
-% legend('# of integrals','\epsilon^{-1}','\epsilon^{-2}')
-% xlabel('\epsilon'); ylabel('# of integrals')
-% title('Number of integrals','FontSize',16)
-% % print('-dpdf','nrintegrals2.pdf')
+ln = length(time2);
 
-
-loglog(...%1./kdata,time2(1:length(kdata)),'o-',...
-    1./kdata,time1,'*-',...
+loglog(1./kdata(1:ln), time2, 'o-',... %1./kdata,time2(1:length(kdata)),'o-',...
+    1./kdata,time12,'*-',...%     1./kdata,time3,'s-',... 1./kdata,time22,'s-',...1./kdata,time23,'<-',...1./kdata,time12-time22,'>-',...
     1./kdata,1e-2*kdata.^1,'--',...
     1./kdata,1e-2*kdata.^2,'-.',...
     1./kdata,1e-3*kdata.^3,':')
-legend(...%'trap',...
-    'NSDM','\epsilon^{-1}',...
-    '\epsilon^{-2}','\epsilon^{-3}')
+lgd = legend('trap','NSDM',...%'sort','SD alone',...%'old',
+    '\epsilon^{-1}','\epsilon^{-2}','\epsilon^{-3}');
+set(lgd,'FontSize',16);
 title('Computation cost trapezoidal rule vs NSDM','FontSize',16)
-xlabel('\epsilon'); ylabel('tic-toc time');
-% print('-dpdf','time3.pdf')
-
-% figure
-% loglog(1./kdata,abs((sumdata-Qdata(1:length(kdata)))./sumdata),'o-')
-% xlabel('\epsilon'); ylabel('relative error')
-% title('Relative error of trapezodial rule to NSDM','FontSize',16)
-% % print('-dpdf','error11.pdf')
+xlabel('\epsilon','FontSize',16); ylabel('tic-toc time','FontSize',16);
+axis([1/kdata(end) 1/kdata(1) 1e-1 1e5])
+% print('-dpdf','time2.pdf')
 
 figure
-loglog(1./kdata,tot,'*-',1./kdata,1e3*kdata,'--',1./kdata,1e2*kdata.^2,'-.')
-legend('# of integrals','\epsilon^{-1}','\epsilon^{-2}')
-xlabel('\epsilon'); ylabel('# of integrals')
-title('Number of integrals','FontSize',16)
-% print('-dpdf','nrintegrals3.pdf')
+loglog(1./kdata(1:ln),abs(sumdata2(1:ln)-Qdata),'o-')
+% loglog(1./kdata,abs((sumdata2-Qdata(1:length(kdata)))./sumdata2),'o-',...
+%     1./kdata, abs((Qdata3-Qdata(1:length(kdata)))./Qdata3))
+xlabel('\epsilon','FontSize',16); ylabel('relative error','FontSize',16)
+title('Relative error of trapezodial rule to NSDM','FontSize',16)
+% print('-dpdf','error2.pdf')
 
-% disp(totalsum)
-% 
-%%
-% disp([Q, summ]);
-% disp(['Relative error ',num2str( abs((Q-summ)/summ))]);
+figure
+loglog(1./kdata,tot2,'*-',1./kdata,1e3*kdata,'--',1./kdata,1e2*kdata.^2,'-.')
+lgd = legend('# of integrals','\epsilon^{-1}','\epsilon^{-2}');
+set(lgd,'FontSize',16);
+xlabel('\epsilon','FontSize',16); ylabel('# of integrals','FontSize',16)
+title('Number of integrals','FontSize',16)
+% print('-dpdf','nrintegrals2.pdf')
+%
